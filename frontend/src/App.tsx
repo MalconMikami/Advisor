@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Mic } from "lucide-react";
+import { Clock, Mic, FlaskConical } from "lucide-react";
 import { Session, RecordingStatus } from "./types";
 import { SessionForm } from "./components/SessionForm";
 import { SessionControls } from "./components/SessionControls";
@@ -7,8 +7,9 @@ import { SessionHistory } from "./components/SessionHistory";
 import { SummaryModal } from "./components/SummaryModal";
 import { TranscriptView } from "./components/TranscriptView";
 import { useTranscription } from "./hooks/useTranscription";
+import { SentimentPocPage } from "./pocs/sentiment/SentimentPocPage";
 
-type View = "form" | "recording" | "history";
+type View = "form" | "recording" | "history" | "poc-sentiment";
 
 function formatDuration(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -125,6 +126,10 @@ export default function App() {
     );
   }
 
+  if (view === "poc-sentiment") {
+    return <SentimentPocPage onBack={() => setView("form")} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
@@ -135,13 +140,22 @@ export default function App() {
           </div>
           <span className="font-bold text-gray-900">Advisor Transcription</span>
         </div>
-        <button
-          onClick={() => setView("history")}
-          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-        >
-          <Clock className="w-4 h-4" />
-          Histórico
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setView("poc-sentiment")}
+            className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors font-medium"
+          >
+            <FlaskConical className="w-4 h-4" />
+            POC Sentimento
+          </button>
+          <button
+            onClick={() => setView("history")}
+            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Clock className="w-4 h-4" />
+            Histórico
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-hidden">

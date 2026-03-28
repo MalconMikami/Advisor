@@ -12,12 +12,21 @@ export interface Session {
   transcripts?: TranscriptEntry[];
 }
 
+export interface EmotionData {
+  emotion: string;
+  valence: number;
+  arousal: number;
+  confidence: number;
+  keywords: string[];
+}
+
 export interface TranscriptEntry {
   id: string;
   speaker_id: number;
   speaker_name: string;
   text: string;
   timestamp: number;
+  emotion?: EmotionData;  // presente somente em utterances do cliente
 }
 
 export interface AudioDevice {

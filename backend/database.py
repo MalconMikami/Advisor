@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, Integer, ForeignKey
+from sqlalchemy import create_engine, Column, String, DateTime, Float, Text, Integer, ForeignKey, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
 
 
@@ -35,6 +35,12 @@ class Transcript(Base):
     text = Column(Text, nullable=False)
     timestamp = Column(Float, nullable=False)  # seconds from session start
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Sentiment fields (populated only for client utterances)
+    emotion = Column(String, nullable=True)
+    valence = Column(Float, nullable=True)
+    arousal = Column(Float, nullable=True)
+    emotion_confidence = Column(Float, nullable=True)
+    emotion_keywords = Column(String, nullable=True)  # comma-separated
 
     session = relationship("Session", back_populates="transcripts")
 
@@ -47,6 +53,25 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate_sentiment_columns()
+
+
+def _migrate_sentiment_columns():
+    """Adiciona colunas de sentimento se não existirem (safe para DBs existentes)."""
+    new_cols = {
+        "emotion": "VARCHAR",
+        "valence": "FLOAT",
+        "arousal": "FLOAT",
+        "emotion_confidence": "FLOAT",
+        "emotion_keywords": "VARCHAR",
+    }
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(transcripts)"))
+        existing = {row[1] for row in result.fetchall()}
+        for col, col_type in new_cols.items():
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE transcripts ADD COLUMN {col} {col_type}"))
+        conn.commit()
 
 
 def get_db():

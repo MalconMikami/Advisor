@@ -13,6 +13,7 @@ from typing import Callable, Coroutine, Optional
 from audio_capture import AudioCapture, AudioSegment
 from database import SessionLocal, Session, Transcript
 from diarization import SpeakerIdentifier
+from sentiment import SentimentAnalyzer
 from transcription import WhisperTranscriber
 
 Callback = Callable[[dict], Coroutine]
@@ -24,11 +25,13 @@ class RecordingSession:
         session_id: str,
         whisper: WhisperTranscriber,
         device_index: Optional[int] = None,
+        sentiment: Optional[SentimentAnalyzer] = None,
     ):
         self.session_id = session_id
         self.whisper = whisper
         self.audio = AudioCapture(device_index=device_index)
         self.diarizer = SpeakerIdentifier()
+        self.sentiment = sentiment
         self.start_time: float = 0.0
         self.is_recording = False
         self._callbacks: list[Callback] = []
@@ -114,6 +117,22 @@ class RecordingSession:
         if result is None:
             return
 
+        # Análise de sentimento — somente para o CLIENTE (speaker_id != 0)
+        # Roda em paralelo ao broadcast para não adicionar latência percebida
+        emotion_data: Optional[dict] = None
+        if self.sentiment and speaker_id != 0:
+            try:
+                emotion = await self.sentiment.analyze(result.text)
+                emotion_data = {
+                    "emotion": emotion.emotion,
+                    "valence": emotion.valence,
+                    "arousal": emotion.arousal,
+                    "confidence": emotion.confidence,
+                    "keywords": emotion.keywords,
+                }
+            except Exception:
+                pass  # falha no sentimento não deve interromper a transcrição
+
         entry_id = str(uuid.uuid4())
 
         db = SessionLocal()
@@ -126,6 +145,11 @@ class RecordingSession:
                     speaker_name=speaker_name,
                     text=result.text,
                     timestamp=timestamp,
+                    emotion=emotion_data["emotion"] if emotion_data else None,
+                    valence=emotion_data["valence"] if emotion_data else None,
+                    arousal=emotion_data["arousal"] if emotion_data else None,
+                    emotion_confidence=emotion_data["confidence"] if emotion_data else None,
+                    emotion_keywords=",".join(emotion_data["keywords"]) if emotion_data else None,
                 )
             )
             db.commit()
@@ -141,6 +165,7 @@ class RecordingSession:
                     "speaker_name": speaker_name,
                     "text": result.text,
                     "timestamp": timestamp,
+                    "emotion": emotion_data,
                 },
             }
         )

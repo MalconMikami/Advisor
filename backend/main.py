@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session as DBSession
 from audio_capture import AudioCapture
 from database import Session, SessionLocal, Transcript, get_db, init_db
 from export import export_pdf, export_txt
+from sentiment import SentimentAnalyzer
+from sentiment_router import router as sentiment_router
 from session_manager import RecordingSession
 from summary import SummaryGenerator
 from transcription import WhisperTranscriber
@@ -46,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(sentiment_router)
 
 
 # ── schemas ───────────────────────────────────────────────────────────────────
@@ -238,10 +242,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     db.close()
 
                 whisper = WhisperTranscriber(api_key=key, language=language)
+                sentiment = SentimentAnalyzer(api_key=key)
                 rec = RecordingSession(
                     session_id=session_id,
                     whisper=whisper,
                     device_index=data.get("device_index"),
+                    sentiment=sentiment,
                 )
                 rec.add_callback(broadcast)
                 active_sessions[session_id] = rec
